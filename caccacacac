@@ -332,21 +332,31 @@ local function TP1(pos, condition)
     end)
 
     local function tweenTo(subTarget)
-        local d = (subTarget.Position - getCDKBlock().Position).Magnitude
-        if d < 5 then return end
-        local tweenTime = d / 300
-        
-        if CurTween then pcall(function() CurTween:Cancel(); CurTween = nil end) end
-        CurTween = TweenSvc:Create(getCDKBlock(), TweenInfo.new(tweenTime, Enum.EasingStyle.Linear), {CFrame = subTarget})
-        CurTween:Play()
-        
         local start = tick()
-        repeat
-            task.wait(0.1)
-        until not CurTween or CurTween.PlaybackState ~= Enum.PlaybackState.Playing or not playerOk() or not condition() or not Active or tick() - start > 60
-
-        if CurTween then pcall(function() CurTween:Cancel(); CurTween = nil end) end
-        getCDKBlock().CFrame = subTarget
+        local speed = 300
+        
+        while Active and playerOk() and condition() do
+            local currentPos = getCDKBlock().Position
+            local targetPos = subTarget.Position
+            local d = (targetPos - currentPos).Magnitude
+            
+            if d < 5 then break end
+            if tick() - start > 60 then break end
+            
+            -- Moi 0.05s di chuyen 1 doan = speed * 0.05 = 15 studs
+            -- Khong bi phu thuoc vao TweenService gay lech neu lag
+            local step = speed * 0.05
+            if step > d then step = d end
+            
+            local dir = (targetPos - currentPos).Unit
+            getCDKBlock().CFrame = CFrame.new(currentPos + dir * step)
+            
+            task.wait(0.05)
+        end
+        
+        if Active and playerOk() and condition() then
+            getCDKBlock().CFrame = subTarget
+        end
     end
 
     tweenTo(target)
