@@ -1,1116 +1,424 @@
-if not LPH_OBFUSCATED then
-    LPH_ENCSTR = LPH_ENCSTR or function(...) return ... end
-    LPH_NO_VIRTUALIZE = LPH_NO_VIRTUALIZE or function(...) return ... end
-end
--- ============================================================
---  KATA.LUA  |  Farm Cake Prince (Boss World 3)
--- ============================================================
-
-local RS_ = game:GetService("ReplicatedStorage")
-local CommF_ = RS_:WaitForChild("Remotes"):WaitForChild("CommF_")
-local PGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
-local function selectTeam()
-    local plr = game:GetService("Players").LocalPlayer
-    if plr.Team then return end
-    
-    local main = PGui:WaitForChild("Main", 10)
-    if main then
-        local chooseTeam = main:WaitForChild("ChooseTeam", 10)
-        if chooseTeam then
-            local waited = 0
-            while not chooseTeam.Visible and waited < 20 do
-                if plr.Team then return end
-                task.wait(1)
-                waited = waited + 1
-            end
-            
-            if chooseTeam.Visible then
-                for k=1, 10 do
-                    if plr.Team then break end
-                    pcall(function() CommF_:InvokeServer("SetTeam", "Marines") end)
-                    pcall(function()
-                        for _, v in pairs(getconnections(chooseTeam.Container.Marines.Frame.ViewportFrame.TextButton.Activated)) do
-                            v.Function()
-                        end
-                    end)
-                    -- Fallback for mobile
-                    pcall(function() chooseTeam.Visible = false end)
-                    task.wait(1)
-                end
-            end
-        end
-    end
-    
-    if not plr.Team then
-        pcall(function() CommF_:InvokeServer("SetTeam", "Marines") end)
-    end
-    task.wait(1)
-end
-task.spawn(selectTeam)
-
-local RS  = game:GetService("ReplicatedStorage")
-local TS  = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local VIM = game:GetService("VirtualInputManager")
-local LP  = game:GetService("Players").LocalPlayer
 local HttpService = game:GetService("HttpService")
-local placeIdd = game.PlaceId
-local worldMap = {
-    [2753915549]   = "World1",
-    [85211729168715] = "World1",
-    [4442272183]   = "World2",
-    [79091703265657] = "World2",
-    [7449423635]   = "World3",
-    [100117331123089] = "World3",
-}
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TeleportService = game:GetService("TeleportService")
+local GuiService = game:GetService("GuiService")
 
--- Config tương thích (nếu không có Config thì dùng default)
-local CG = getgenv().Config or { ["Black Screen"] = false, toolTip = "Melee" }
-if not CG.toolTip then CG.toolTip = "Melee" end
-Services = setmetatable({}, {__index = function(self, name)
-    local s, c = pcall(function()
-        return (cloneref or function(x) return x end)(game:GetService(name))
-    end)
-    if s then rawset(self, name, c) return c
-    else error("Invalid Roblox Service: " .. tostring(name)) end
-end})
-repeat task.wait(0.5) until LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+repeat task.wait() until Players.LocalPlayer
+local LocalPlayer = Players.LocalPlayer
 
-if worldMap[placeIdd] == "World2" then
-    print("Kata | Đang ở Sea 2, Auto Teleport sang Sea 3...")
-    pcall(function()
-        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("TravelZou")
-    end)
-    task.wait(10)
-    return
-end
-local Root = LP.Character.HumanoidRootPart
-_G.FarmV2 = false
-LP.CharacterAdded:Connect(function(char)
-    char:WaitForChild("HumanoidRootPart")
-    Root = char.HumanoidRootPart
-end)
-local Character, Humanoid, HumanoidRootPart
-if LP then
-    Character     = LP.Character
-    Humanoid      = Character:FindFirstChildWhichIsA("Humanoid") or Character:WaitForChild("Humanoid")
-    HumanoidRootPart = Character:FindFirstChild("HumanoidRootPart") or Character:WaitForChild("HumanoidRootPart")
-end
--- ============================================================
---  BIẾN GLOBAL
--- ============================================================
-getgenv().StopKata = false
-isHopping = false
--- Auto rejoin khi bị lỗi / security kick
-local function RejoinSelf()
-    pcall(function()
-        RS:WaitForChild("__ServerBrowser"):InvokeServer("teleport", game.JobId)
-    end)
-end
-game:GetService("CoreGui").RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
-    if isHopping then return end
-    if child.Name == 'ErrorPrompt'
-    and child:FindFirstChild('MessageArea')
-    and child.MessageArea:FindFirstChild('ErrorFrame') then
-        RejoinSelf()
-        return
-    end
-    if child.Name == 'LeaveGamePrompt' then
-        task.wait(1)
-        RejoinSelf()
-        return
-    end
-end)
-game:GetService("Players").LocalPlayer.OnTeleport:Connect(function(state)
-    if state == Enum.TeleportState.Failed then
-        task.wait(2)
-        RejoinSelf()
-    end
-end)
--- Auto Buso
-spawn(function()
-    while task.wait(1) do
-        pcall(function()
-            if not LP.Character:FindFirstChild("HasBuso") then
-                RS.Remotes.CommF_:InvokeServer("Buso")
-            end
-        end)
-    end
-end)
--- ============================================================
---  TWEEN / TP SYSTEM  (lấy từ bigupcy.lua)
--- ============================================================
-local shouldTween = false
-local block = Instance.new("Part", workspace)
-block.Name  = "TweenBlock_Kata"
-block.Size  = Vector3.new(1,1,1)
-block.Anchored  = true
-block.CanCollide = false
-block.CanTouch  = false
-block.Transparency = 1
-task.spawn(function()
-    while task.wait() do
-        pcall(function()
-            if shouldTween and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-                local hrp = LP.Character.HumanoidRootPart
-                hrp.CFrame = block.CFrame
-                local Head = LP.Character:FindFirstChild("Head")
-                if Head and not Head:FindFirstChild("AntiFall") then
-                    local bv = Instance.new("BodyVelocity")
-                    bv.Name = "AntiFall"
-                    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-                    bv.Velocity = Vector3.zero
-                    bv.Parent = Head
-                end
-                for _, part in LP.Character:GetDescendants() do
-                    if part:IsA("BasePart") then part.CanCollide = false end
-                end
-            end
-        end)
-    end
-end)
-local function _tp(target)
-    if not target then return end
-    target = typeof(target) ~= "CFrame" and CFrame.new(target) or target
-    shouldTween = true
-    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-        local dist = (block.Position - LP.Character.HumanoidRootPart.Position).Magnitude
-        if dist > 100 then block.CFrame = LP.Character.HumanoidRootPart.CFrame end
-    end
-    if LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") and LP.Character.Humanoid.Sit then
-        block.CFrame = CFrame.new(block.Position.X, target.Y, block.Position.Z)
-    end
-    local dist  = (block.Position - target.Position).Magnitude
-    local speed = 350
-    local time  = math.max(dist / speed, 0.1)
-    local tween = TS:Create(block, TweenInfo.new(time, Enum.EasingStyle.Linear), {CFrame = target})
-    tween:Play()
-    task.spawn(function()
-        while tween.PlaybackState == Enum.PlaybackState.Playing do
-            if not shouldTween then tween:Cancel() break end
-            task.wait(0.1)
-        end
-    end)
-end
-function TweenTo(Position)
-    if not Position then return end
-    if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
-    Position = typeof(Position) ~= "CFrame" and CFrame.new(Position) or Position
-    if LP:GetAttribute("ExactLocation") == "Submerged Island" then
-        RS:WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer("TeleportToSpawn")
-        task.wait(6)
-    end
-    block.CFrame = LP.Character.HumanoidRootPart.CFrame
-    _tp(Position)
-end
-function StopTween()
-    shouldTween = false
-    if block and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-        block.CFrame = LP.Character.HumanoidRootPart.CFrame
-    end
-end
--- ============================================================
---  LABEL UI
--- ============================================================
-local ScreenGuis = Instance.new("ScreenGui", LP.PlayerGui)
-local label = Instance.new("TextLabel", ScreenGuis)
-label.Name = "KataLabel"
-label.AnchorPoint = Vector2.new(0.5, 0.5)
-label.Position = UDim2.new(0.5, 0, 0.5, 0)
-label.Size = UDim2.new(0.6, 0, 0.15, 0)
-label.Text = "Kata | Starting..."
-label.TextScaled = true
-label.TextWrapped = true
-label.TextXAlignment = Enum.TextXAlignment.Center
-label.TextYAlignment = Enum.TextYAlignment.Center
-label.BackgroundTransparency = 1
-label.Font = Enum.Font.GothamSemibold
-label.TextSize = 48
-label.TextColor3 = Color3.fromRGB(255, 255, 0)
-local function SetText(newText)
-    label.Text = newText
-    print("[Kata] " .. tostring(newText))
-end
--- ============================================================
---  UTIL FUNCTIONS
--- ============================================================
-local function CheckTool(v)
-    return (LP.Backpack:FindFirstChild(v) or (LP.Character and LP.Character:FindFirstChild(v))) and true or false
-end
-local function EquipByTip(toolTip)
-    if not LP.Character then return end
-    local equipped = LP.Character:FindFirstChildOfClass("Tool")
-    if equipped and equipped.ToolTip == toolTip then return equipped end
-    for _, tool in pairs(LP.Backpack:GetChildren()) do
-        if tool:IsA("Tool") and tool.ToolTip == toolTip then
-            LP.Character:FindFirstChildOfClass("Humanoid"):EquipTool(tool)
-            return tool
-        end
-    end
-    return nil
-end
-local function GetConnectionEnemies(a)
-    for _, v in pairs(RS:GetChildren()) do
-        if v:IsA("Model") and ((typeof(a) == "table" and table.find(a, v.Name)) or v.Name == a)
-           and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
-            return v
-        end
-    end
-    for _, v in pairs(workspace.Enemies:GetChildren()) do
-        if v:IsA("Model") and ((typeof(a) == "table" and table.find(a, v.Name)) or v.Name == a)
-           and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
-            return v
-        end
-    end
-    return nil
-end
--- ============================================================
---  BRING MOB  (lấy từ KaitunGhoul.lua)
--- ============================================================
-local function BringMob(targetMob)
-    if not targetMob or not targetMob:FindFirstChild("HumanoidRootPart") then return end
-    local posMon = targetMob.HumanoidRootPart.CFrame
-    local count = 0
-    pcall(function() sethiddenproperty(LP, "SimulationRadius", math.huge) end)
-    for _, v in pairs(workspace.Enemies:GetChildren()) do
-        if v.Name == targetMob.Name and v ~= targetMob then
-            local hum = v:FindFirstChild("Humanoid")
-            local pp = v:FindFirstChild("HumanoidRootPart")
-            if hum and pp and hum.Health > 0 then
-                if (pp.Position - posMon.Position).Magnitude <= 350 then
-                    count = count + 1
-                    if count >= 6 then break end
-                    pcall(function()
-                        pp.CanCollide = false
-                        hum.WalkSpeed = 0
-                        hum.JumpPower = 0
-                        if hum:FindFirstChild("Animator") then hum.Animator:Destroy() end
-                        pp.CFrame = posMon
-                        pp.AssemblyLinearVelocity = Vector3.zero
-                        pp.AssemblyAngularVelocity = Vector3.zero
-                    end)
-                end
-            end
-        end
-    end
-end
-BringMonster = (function(name, count) count = count or 3
-    if count < 2 then return end
-    pcall(function() setscriptable(LP, "SimulationRadius", true) end)
-    pcall(function() sethiddenproperty(LP, "SimulationRadius", math.huge) end)
-    xpcall((function()
-        local mob, t = {}, nil
-        for _, v in next, workspace.Enemies:GetChildren() do
-            local h   = v:FindFirstChildWhichIsA("Humanoid")
-            local hrp = v:FindFirstChild("HumanoidRootPart")
-            if h and hrp and h.Health > 0 and (not name or v.Name == name)
-                and (HumanoidRootPart.Position - hrp.Position).Magnitude <= ((count or 3) * 250) then
-                if not table.find(mob, function(chosen)
-                    local chrp = chosen:FindFirstChild("HumanoidRootPart")
-                    return chrp and (hrp.Position - chrp.Position).Magnitude <= 5
-                end) then mob[#mob+1], t = v, t or hrp.CFrame
-                end
-                if #mob >= (count or 3) then break end
-            end
-        end
-        if not t then return end
-        for i = 1, #mob do
-            local hrp = mob[i]:FindFirstChild("HumanoidRootPart")
-            if hrp and (not isnetworkowner or isnetworkowner(hrp)) then
-                hrp.AssemblyLinearVelocity = Vector3.zero
-                hrp.AssemblyAngularVelocity = Vector3.zero
-                hrp.CFrame = t * CFrame.new((i-1) * 2, 0, 0)
-            end
-        end
-    end), (function(r) warn("[Kata] BringMonster Error: ".. r) end))
-end)
--- ============================================================
---  FAST ATTACK  (lấy từ KaitunGhoul.lua – Layer 1)
--- ============================================================
-_G.FastAttack = true
-if _G.FastAttack then
-    local _ENV = (getgenv or getrenv or getfenv)()
-    local function SafeWaitForChild(parent, childName)
-        local success, result = pcall(function()
-            return parent:WaitForChild(childName, 10)
-        end)
-        if not success or not result then
-            warn("[Kata] Không tìm thấy: " .. childName)
-        end
-        return result
-    end
-    local VirtualInputManager = game:GetService("VirtualInputManager")
-    local ReplicatedStorage   = game:GetService("ReplicatedStorage")
-    local Players             = game:GetService("Players")
-    local Player              = Players.LocalPlayer
-    if Player then
-        local Remotes = SafeWaitForChild(ReplicatedStorage, "Remotes")
-        if Remotes then
-            local Enemies   = SafeWaitForChild(workspace, "Enemies")
-            local Characters = SafeWaitForChild(workspace, "Characters")
-            local Modules   = SafeWaitForChild(ReplicatedStorage, "Modules")
-            local Net       = SafeWaitForChild(Modules, "Net")
-            local Settings = { AutoClick = true, ClickDelay = 0 }
-            local Module   = {}
-            Module.FastAttack = (function()
-                if _ENV.rz_FastAttack then return _ENV.rz_FastAttack end
-                local FastAttack = {
-                    Distance      = 100,
-                    attackMobs    = true,
-                    attackPlayers = true,
-                    Equipped      = nil
-                }
-                local RegisterAttack = SafeWaitForChild(Net, "RE/RegisterAttack")
-                local RegisterHit    = SafeWaitForChild(Net, "RE/RegisterHit")
-                local function IsAlive(character)
-                    return character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0
-                end
-                local function ProcessEnemies(OthersEnemies, Folder)
-                    local BasePart = nil
-                    for _, Enemy in Folder:GetChildren() do
-                        local Head = Enemy:FindFirstChild("Head")
-                        if Head and IsAlive(Enemy) and Player:DistanceFromCharacter(Head.Position) < FastAttack.Distance then
-                            if Enemy ~= Player.Character then
-                                table.insert(OthersEnemies, {Enemy, Head})
-                                BasePart = Head
-                            end
-                        end
-                    end
-                    return BasePart
-                end
-                function FastAttack:Attack(BasePart, OthersEnemies)
-                    if not BasePart or #OthersEnemies == 0 then return end
-                    RegisterAttack:FireServer(Settings.ClickDelay or 0)
-                    RegisterHit:FireServer(BasePart, OthersEnemies)
-                end
-                function FastAttack:AttackNearest()
-                    local OthersEnemies = {}
-                    local Part1 = ProcessEnemies(OthersEnemies, Enemies)
-                    local Part2 = ProcessEnemies(OthersEnemies, Characters)
-                    local character = Player.Character
-                    if not character then return end
-                    local equippedWeapon = character:FindFirstChildOfClass("Tool")
-                    if equippedWeapon and equippedWeapon:FindFirstChild("LeftClickRemote") then
-                        for _, enemyData in ipairs(OthersEnemies) do
-                            local enemy = enemyData[1]
-                            local direction = (enemy.HumanoidRootPart.Position - character:GetPivot().Position).Unit
-                            pcall(function() equippedWeapon.LeftClickRemote:FireServer(direction, 1) end)
-                        end
-                    elseif #OthersEnemies > 0 then
-                        self:Attack(Part1 or Part2, OthersEnemies)
-                    else
-                        task.wait(0)
-                    end
-                end
-                function FastAttack:BladeHits()
-                    local Equipped = IsAlive(Player.Character) and Player.Character:FindFirstChildOfClass("Tool")
-                    if Equipped and Equipped.ToolTip ~= "Gun" then
-                        self:AttackNearest()
-                    else
-                        task.wait(0)
-                    end
-                end
-                task.spawn(function()
-                    while task.wait(Settings.ClickDelay) do
-                        if Settings.AutoClick then
-                            FastAttack:BladeHits()
-                        end
-                    end
-                end)
-                _ENV.rz_FastAttack = FastAttack
-                return FastAttack
-            end)()
-        end
-    end
-end
--- Layer 2: remote + CombatUtil attack (giống bigupcy)
-local remote, idremote
-for _, v in next, ({RS.Util, RS.Common, RS.Remotes, RS.Assets, RS.FX}) do
-    pcall(function()
-        for _, n in next, v:GetChildren() do
-            if n:IsA("RemoteEvent") and n:GetAttribute("Id") then
-                remote, idremote = n, n:GetAttribute("Id")
-            end
-        end
-        v.ChildAdded:Connect(function(n)
-            if n:IsA("RemoteEvent") and n:GetAttribute("Id") then
-                remote, idremote = n, n:GetAttribute("Id")
-            end
-        end)
-    end)
-end
-task.spawn(function()
-    while task.wait(0.05) do
-        local char = LP.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root then continue end
-        local parts = {}
-        for _, x in ipairs({workspace.Enemies, workspace.Characters}) do
-            for _, v in ipairs(x and x:GetChildren() or {}) do
-                local hrp = v:FindFirstChild("HumanoidRootPart")
-                local hum = v:FindFirstChild("Humanoid")
-                if v ~= char and hrp and hum and hum.Health > 0
-                   and (hrp.Position - root.Position).Magnitude <= 60 then
-                    for _, _v in ipairs(v:GetChildren()) do
-                        if _v:IsA("BasePart") and (hrp.Position - root.Position).Magnitude <= 60 then
-                            parts[#parts + 1] = {v, _v}
-                        end
-                    end
-                end
-            end
-        end
-        local tool = char:FindFirstChildOfClass("Tool")
-        if #parts > 0 and tool
-           and (tool:GetAttribute("WeaponType") == "Melee" or tool:GetAttribute("WeaponType") == "Sword") then
-            pcall(function()
-                require(RS.Modules.Net):RemoteEvent("RegisterHit", true)
-                RS.Modules.Net["RE/RegisterAttack"]:FireServer()
-                local head = parts[1][1]:FindFirstChild("Head")
-                if not head then return end
-                RS.Modules.Net["RE/RegisterHit"]:FireServer(head, parts, {},
-                    tostring(LP.UserId):sub(2,4) .. tostring(coroutine.running()):sub(11,15))
-                if remote and idremote then
-                    pcall(function()
-                        cloneref(remote):FireServer(string.gsub("RE/RegisterHit", ".", function(c)
-                            return string.char(bit32.bxor(string.byte(c),
-                                math.floor(workspace:GetServerTimeNow() / 10 % 10) + 1))
-                        end), bit32.bxor(idremote + 909090,
-                            RS.Modules.Net.seed:InvokeServer() * 2), head, parts)
-                    end)
-                end
-            end)
-        end
-    end
-end)
--- Layer 3: CombatUtil
-local M  = RS:WaitForChild("Modules")
-local CU, WD = nil, nil
-task.spawn(function()
-    local ok1, r1 = pcall(function() return require(M:WaitForChild("CombatUtil", 10)) end)
-    if ok1 then CU = r1 else warn("[Kata] Không load được CombatUtil") end
-    local ok2, r2 = pcall(function() return require(M:WaitForChild("WeaponData", 10)) end)
-    if ok2 then WD = r2 else warn("[Kata] Không load được WeaponData") end
-end)
-local N  = M:FindFirstChild("Net")
-local RA = N and (N:FindFirstChild("RE/RegisterAttack") or N:FindFirstChild("RegisterAttack"))
-local RH = N and (N:FindFirstChild("RE/RegisterHit")    or N:FindFirstChild("RegisterHit"))
-local IS
-do
-    local PS = LP:WaitForChild("PlayerScripts")
-    for _, s in next, PS:GetChildren() do
-        if s:IsA("LocalScript") then
-            local ok, env = pcall(getsenv, s)
-            if ok and env and env._G and typeof(env._G.SendHitsToServer) == "function" then
-                IS = env._G.SendHitsToServer
-                break
-            end
-        end
-    end
-    if not IS and _G.SendHitsToServer then IS = _G.SendHitsToServer end
-end
-pcall(function()
-    hookfunction(CU.GetComboPaddingTime,     function() return 0    end)
-    hookfunction(CU.GetAttackCancelMultiplier, function() return 0  end)
-    hookfunction(CU.CanAttack,               function() return true end)
-end)
-local HList = {"RightLowerArm","RightUpperArm","LeftLowerArm","LeftUpperArm",
-               "RightHand","LeftHand","HumanoidRootPart","Head","UpperTorso","LowerTorso"}
-okm = function(m)
-    local h = m:FindFirstChildWhichIsA("Humanoid")
-    return h and h.Health > 0 and m:FindFirstChild("HumanoidRootPart") and not m:FindFirstChild("VehicleSeat")
-end
-hpt = function(m)
-    for _ = 1, 2 do
-        local p = m:FindFirstChild(HList[math.random(1, #HList)])
-        if p then return p end
-    end
-    return m:FindFirstChild("HumanoidRootPart")
-end
-near = function(r, maxN)
-    local out, ch = {}, LP.Character
-    if not ch then return out end
-    local hrp = ch:FindFirstChild("HumanoidRootPart")
-    if not hrp then return out end
-    local p0 = hrp.Position
-    for _, grp in next, {workspace:FindFirstChild("Enemies"), workspace:FindFirstChild("Characters")} do
-        if grp then
-            for _, v in next, grp:GetChildren() do
-                if #out >= maxN then break end
-                if v ~= ch and okm(v) then
-                    local hr = v:FindFirstChild("HumanoidRootPart")
-                    if hr and (hr.Position - p0).Magnitude <= r then
-                        out[#out+1] = v
-                    end
-                end
-            end
-        end
-    end
-    return out
-end
-pkg = function(t)
-    local main, hits = nil, {}
-    for _, v in next, t do
-        if okm(v) then
-            local p = hpt(v)
-            if p then
-                if not main then main = p end
-                hits[#hits+1] = {v, p}
-            end
-        end
-    end
-    return main, hits
-end
-send = function(main, hits)
-    if main and #hits > 0 then
-        if IS then IS(main, hits)
-        elseif RH then RH:FireServer(main, hits) end
-    end
-end
-local AC, HM = {}, nil
-setH = function(c)
-    local h = c:FindFirstChildWhichIsA("Humanoid")
-    if h then HM = h; AC = {} end
-end
-if LP.Character then setH(LP.Character) end
-LP.CharacterAdded:Connect(function(c) c:WaitForChild("Humanoid"); setH(c) end)
-anim = function(tool)
-    if not (HM and tool and WD) then return end
-    local wn = CU:GetWeaponName(tool)
-    local data = WD[wn] or WD[string.lower(wn)] or WD[CU:GetPureWeaponName(wn)]
-    if not (data and data.Moveset and data.Moveset.Basic) then return end
-    local mv = data.Moveset.Basic
-    local a  = mv[math.random(1, #mv)]
-    if not (a and a.AnimationId) then return end
-    if not AC[a.AnimationId] then
-        local n = Instance.new("Animation")
-        n.AnimationId = a.AnimationId
-        AC[a.AnimationId] = HM:LoadAnimation(n)
-    end
-    local tr = AC[a.AnimationId]
-    if tr then tr:Play(1, 1, 0.2) end
-end
-spawn(function()
-    while task.wait(0.019) do
-        local ok, err = pcall(function()
-            local ch = LP.Character
-            if not ch then return end
-            local tool = ch:FindFirstChildOfClass("Tool")
-            if not tool then return end
-            local tg = near(60, 20)
-            if #tg == 0 then return end
-            local main, hits = pkg(tg)
-            if not main then return end
-            if RA then RA:FireServer(0) end
-            if _G.Animation then anim(tool) end
-            task.defer(function()
-                pcall(function()
-                    CU:AttackStart(main, 1)
-                    CU:RunHitDetection(main.Parent or main, 1, {_Object = {Length = 0.02, IsPlaying = true}})
-                end)
-            end)
-            send(main, hits)
-        end)
-    end
-end)
--- Layer 3b: loadstring FastAttack (giống KaitunGhoul)
-local FastAttackLS = loadstring([[
-    local Modules = game.ReplicatedStorage.Modules
-    local Net = Modules.Net
-    local Register_Hit, Register_Attack = Net:WaitForChild('RE/RegisterHit'), Net:WaitForChild('RE/RegisterAttack')
-    local Funcs = {}
-    function GetAllBladeHits()
-        bladehits = {}
-        for _, v in pairs(workspace.Enemies:GetChildren()) do
-            if v:FindFirstChild('Humanoid') and v:FindFirstChild('HumanoidRootPart') and v.Humanoid.Health > 0
-            and (v.HumanoidRootPart.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <= 65 then
-                table.insert(bladehits, v)
-            end
-        end
-        return bladehits
-    end
-    function Getplayerhit()
-        bladehits = {}
-        for _, v in pairs(workspace.Characters:GetChildren()) do
-            if v.Name ~= game.Players.LocalPlayer.Name and v:FindFirstChild('Humanoid') and v:FindFirstChild('HumanoidRootPart') and v.Humanoid.Health > 0
-            and (v.HumanoidRootPart.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <= 65 then
-                table.insert(bladehits, v)
-            end
-        end
-        return bladehits
-    end
-    local Net2 = (Services.ReplicatedStorage.Modules.Net)
-    local RegisterAttack = require(Net2):RemoteEvent('RegisterAttack', true)
-    local RegisterHit = require(Net2):RemoteEvent('RegisterHit', true)
-    function Funcs:Attack()
-        local bladehits = {}
-        for r,v in pairs(GetAllBladeHits()) do table.insert(bladehits, v) end
-        for r,v in pairs(Getplayerhit()) do table.insert(bladehits, v) end
-        if #bladehits == 0 then return end
-        local args = {[1]=nil,[2]={},[3]=nil,[4]="078da341"}
-        for r, v in pairs(bladehits) do
-            RegisterAttack:FireServer(0)
-            if not args[1] then args[1] = v.Head end
-            table.insert(args[2], {[1]=v,[2]=v.HumanoidRootPart})
-            table.insert(args[2], v)
-        end
-        RegisterHit:FireServer(unpack(args))
-    end
-    task.spawn(function()
-        while task.wait(.05) do
-            if _G.FastAttack == os.time() then
-                pcall(function() Funcs:Attack() end)
-            end
-        end
-    end)
-    getgenv().Attack = function(MonResult)
-        pcall(function() _G.FastAttack = os.time() end)
-    end
-]])
-if FastAttackLS then FastAttackLS() end
--- ============================================================
---  KILL MONSTER  (logic từ bigupcy.lua – có BringMob)
--- ============================================================
-local lastKenCall = tick()
-KillMonster = function(x)
-    xpcall(function()
-        if workspace.Enemies:FindFirstChild(x) then
-            for _, v in next, workspace.Enemies:GetChildren() do
-                local vh   = v:FindFirstChildWhichIsA("Humanoid")
-                local vhrp = v:FindFirstChild("HumanoidRootPart")
-                if vh and vh.Health > 0 and vhrp and v.Name == x then
-                    local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-                    if not myHrp then return end
-                    local toolTipConfig = CG["toolTip"] or "Melee"
-                    EquipByTip(toolTipConfig)
-                    local dx = myHrp.Position.X - vhrp.Position.X
-                    local dy = myHrp.Position.Y - vhrp.Position.Y
-                    local dz = myHrp.Position.Z - vhrp.Position.Z
-                    if dx*dx + dy*dy + dz*dz <= 4900 then
-                        if tick() - lastKenCall >= 10 then
-                            lastKenCall = tick()
-                            RS.Remotes.CommE:FireServer("Ken", true)
-                        end
-                    end
-                    if toolTipConfig == "Blox Fruit" then
-                        local currentHealth = vh.Health
-                        local prevHealth = vh:GetAttribute("PrevHealth") or currentHealth
-                        if currentHealth < prevHealth then
-                            StopTween()
-                            myHrp.CFrame = CFrame.new(vhrp.Position.X, vhrp.Position.Y + 10000000, vhrp.Position.Z)
-                        else
-                            StopTween()
-                            myHrp.CFrame = vhrp.CFrame
-                        end
-                        vh:SetAttribute("PrevHealth", currentHealth)
-                        BringMob(v)
-                        return
-                    else
-                        shouldTween = false
-                        local ePos = vhrp.Position
-                        local safeY = math.max(ePos.Y + 45, 50)
-                        myHrp.CFrame = CFrame.new(myHrp.Position.X, 10000000, myHrp.Position.Z)
-                        myHrp.CFrame = CFrame.new(ePos.X, safeY, ePos.Z)
-                        BringMob(v)
-                        return
-                    end
-                end
-            end
-        end
-        for _, v in next, RS:GetChildren() do
-            local vhrp = v:FindFirstChild("HumanoidRootPart")
-            if v:IsA("Model") and vhrp and v.Name == x then
-                local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-                if myHrp then
-                    shouldTween = false
-                    myHrp.CFrame = CFrame.new(myHrp.Position.X, 10000000, myHrp.Position.Z)
-                    myHrp.CFrame = CFrame.new(vhrp.Position.X, 10000000, vhrp.Position.Z)
-                    myHrp.CFrame = CFrame.new(vhrp.Position.X, vhrp.Position.Y + 3, vhrp.Position.Z)
-                end
-                return
-            end
-        end
-    end, function(e) warn("[Kata] KillMonster ERROR:", e) end)
-end
--- ============================================================
---  HOP API  –  name_kata.json  (lưu jobid đã hop)
--- ============================================================
-local KATA_FILE    = LP.Name .. "_kata.json"
-local HoppedJobIds = {}
-local HopCount     = 0
-getgenv().FailedJobIds   = getgenv().FailedJobIds or {}
-getgenv().LastApiRefresh = getgenv().LastApiRefresh or 0
-local function LoadHoppedJobIds()
-    pcall(function()
-        local ok, data = pcall(readfile, KATA_FILE)
-        if ok and data and data ~= "" then
-            local decoded = HttpService:JSONDecode(data)
-            if type(decoded) == "table" then
-                for _, jobId in ipairs(decoded) do
-                    HoppedJobIds[jobId] = true
-                end
-            end
-        end
-    end)
-end
-local function SaveHoppedJobIds()
-    pcall(function()
-        local list = {}
-        for jobId, _ in pairs(HoppedJobIds) do
-            table.insert(list, jobId)
-        end
-        writefile(KATA_FILE, HttpService:JSONEncode(list))
-    end)
-end
-LoadHoppedJobIds()
--- ============================================================
---  TỌA ĐỘ
--- ============================================================
--- Điểm đổ bộ đảo CakeLoaf để kiểm tra & tween đến khi mới bắt đầu
-local CAKELOAF_LAND   = Vector3.new(-1762, 38, -11878)
-local CAKELOAF_RADIUS = 300   -- ngưỡng "đang ở CakeLoaf" (dùng khi check ban đầu)
--- Tọa độ cổng Mirror World (giữ nguyên từ 1.lua)
-local GATE_POSITION   = Vector3.new(-2152.15, 120, -12398.39)
+repeat task.wait() until game:IsLoaded() and LocalPlayer:FindFirstChild("DataLoaded")
 
--- TweenTo đến đảo CakeLoaf (chỉ chạy một lần khi mới vào, trước HopAPI)
-local function GoToCakeLoaf()
-    SetText("Kata | TweenTo → đảo CakeLoaf...")
-    if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
-    TweenTo(CFrame.new(CAKELOAF_LAND))
-    -- Chờ tween chạy xong (dist < CAKELOAF_RADIUS hoặc timeout 60s)
-    local t = 0
-    while t < 60 do
-        task.wait(0.5)
-        t = t + 0.5
-        local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-        if hrp and (hrp.Position - CAKELOAF_LAND).Magnitude <= CAKELOAF_RADIUS then
-            StopTween()
-            SetText("Kata | Đã đến CakeLoaf!")
-            task.wait(0.5)
-            return
-        end
-    end
-    StopTween()
-end
-
--- TweenTo cổng Mirror World (giống 1.lua: requestEntrance + tween + chờ dist < 50)
-local function BypassTpToCakeLoaf()
-    SetText("Kata | Bypass TP -> Cổng Mirror World...")
-    local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-    if not myHrp then return end
+if not LocalPlayer.Team then
+    local commF = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_")
     
-    -- Patch bypass: tắt collision toàn thân
-    for _, part in LP.Character:GetDescendants() do
-        if part:IsA("BasePart") then part.CanCollide = false end
+    if LocalPlayer.PlayerGui:FindFirstChild("LoadingScreen") then
+        repeat task.wait(1) until not LocalPlayer.PlayerGui:FindFirstChild("LoadingScreen")
     end
-
-    -- Tween đến trên đầu cổng (tránh kẹt)
-    TweenTo(CFrame.new(GATE_POSITION + Vector3.new(0, 30, 0)))
-    local timeout = 20
-    local elapsed = 0
-    while elapsed < timeout do
-        task.wait(0.5)
-        elapsed = elapsed + 0.5
-        local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            local dist = (hrp.Position - (GATE_POSITION + Vector3.new(0, 30, 0))).Magnitude
-            if dist < 50 then
-                break
-            end
-        end
-    end
-    StopTween()
-    task.wait(0.5)
     
-    -- Nhảy thẳng vào tâm gương
-    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-        LP.Character.HumanoidRootPart.CFrame = CFrame.new(GATE_POSITION)
-    end
-    task.wait(0.5)
-    
-    pcall(function()
-        RS.Remotes.CommF_:InvokeServer("requestEntrance", GATE_POSITION)
+    local success = pcall(function()
+        commF:InvokeServer("SetTeam", "Pirates")
     end)
-    task.wait(1)
-    SetText("Kata | Đã vào cổng Mirror World!")
-end
--- ============================================================
---  KIỂM TRA BOSS CAKE PRINCE
--- ============================================================
-local function HasCakePrince()
-    for _, v in pairs(workspace.Enemies:GetChildren()) do
-        if v.Name == "Cake Prince" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
-            return true
-        end
-    end
-    for _, v in pairs(RS:GetChildren()) do
-        if v.Name == "Cake Prince" and v:IsA("Model")
-           and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
-            return true
-        end
-    end
-    return false
-end
--- ============================================================
---  HOP API ĐẾN SERVER CÓ CAKE PRINCE  (tối ưu)
--- ============================================================
-local CAKE_PRINCE_API = "http://mbasic7.pikamc.vn:25082/api/name=cakeprince?apikey=CONCACDUMAMAY"
-
--- Hàm load API nhanh, trả về danh sách server đã lọc+sort theo ít người
-local function FetchFilteredServers()
-    local CURRENT_PLACE_ID = game.PlaceId
-    local responseBody
-    -- Thử HttpGet trước (nhanh nhất)
-    pcall(function() responseBody = game:HttpGet(CAKE_PRINCE_API) end)
-    -- Fallback sang request nếu cần
-    if not responseBody then
+    
+    if not success then
         pcall(function()
-            local reqFunc = (syn and syn.request) or request or http.request
-            local req = reqFunc({ Url = CAKE_PRINCE_API, Method = "GET" })
-            responseBody = req.Body
+            if type(firesignal) == "function" and LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
+                firesignal(LocalPlayer.PlayerGui["Main (minimal)"].ChooseTeam.Container.Pirates)
+            end
         end)
     end
-    if not responseBody then return nil, "Không lấy được API" end
-
-    local ok, data = pcall(function() return HttpService:JSONDecode(responseBody) end)
-    if not ok or not data or not data.success
-    or type(data.data) ~= "table" or type(data.data.data) ~= "table" then
-        return nil, "API sai dữ liệu"
-    end
-
-    -- Dedup + lọc đúng placeId
-    local seen, filtered = {}, {}
-    for _, entry in ipairs(data.data.data) do
-        local jobId  = entry.jobid
-        local placeId = entry.placeid
-        local players = tonumber(entry.player) or 99
-        if jobId and placeId and not seen[jobId]
-        and tostring(placeId) == tostring(CURRENT_PLACE_ID) then
-            seen[jobId] = true
-            table.insert(filtered, {jobid = jobId, players = players})
-        end
-    end
-    -- Ưu tiên server ít người nhất
-    table.sort(filtered, function(a, b) return a.players < b.players end)
-    return filtered, nil
+    task.wait(2)
 end
 
-local function HopApiCakePrince(maxPlayers, waitTime)
-    isHopping = true
-    maxPlayers = maxPlayers or 12
-    waitTime   = waitTime   or 25
-
-    -- Reset FailedJobIds mỗi 10 phút
-    if tick() - getgenv().LastApiRefresh > 600 then
-        getgenv().FailedJobIds   = {}
-        getgenv().LastApiRefresh = tick()
-    end
-
-    -- Load API lần đầu
-    SetText("Kata | Đang tải API...")
-    local filtered, err = FetchFilteredServers()
-    if not filtered then
-        SetText("Kata | " .. (err or "API lỗi") .. " – thử lại sau 5s")
-        task.wait(5)
-        isHopping = false
-        return false
-    end
-
-    SetText("Kata | API: " .. #filtered .. " server có Cake Prince (ưu tiên ít người)")
-
-    local triedCount = 0
-    local i = 1
-    while i <= #filtered do
-        if getgenv().StopKata then break end
-        local server  = filtered[i]
-        local jobId   = server.jobid
-        local players = server.players
-
-        -- Bỏ qua server không hợp lệ (không skip server đầy – vẫn hop nếu API ít server)
-        if jobId == game.JobId
-        or getgenv().FailedJobIds[jobId]
-        or HoppedJobIds[jobId] then
-            i = i + 1
-            continue
+local placeId = game.PlaceId
+if placeId ~= 7449423635 and placeId ~= 100117331123089 then
+    local commF = ReplicatedStorage:WaitForChild("Remotes", 9e9):WaitForChild("CommF_", 9e9)
+    pcall(function()
+        if placeId == 2753915549 then
+            commF:InvokeServer("TravelDressrosa")
+        else
+            commF:InvokeServer("TravelZou")
         end
-
-        triedCount = triedCount + 1
-        -- Retry cùng 1 jobId tối đa 5 lần, cách nhau 1s
-        local retrySuccess = false
-        for retry = 1, 5 do
-            if getgenv().StopKata then
-                isHopping = false
-                return false
-            end
-            SetText("Kata | Hop [" .. retry .. "/5] → " .. players .. " người | " .. jobId:sub(1,8) .. "...")
-            local teleportOk = pcall(function()
-                RS:WaitForChild("__ServerBrowser"):InvokeServer("teleport", jobId)
-            end)
-            if teleportOk then
-                HopCount = HopCount + 1
-                HoppedJobIds[jobId] = true
-                if HopCount >= 10 then
-                    HopCount = 0
-                    HoppedJobIds = {}
-                    writefile(KATA_FILE, "[]")
-                    SetText("Kata | Reset " .. KATA_FILE)
-                else
-                    SaveHoppedJobIds()
-                end
-                task.wait(15)
-                retrySuccess = true
-                isHopping = false
-                return true
-            end
-            task.wait(1)
-        end
-
-        -- Fail 5 lần → đánh dấu và đổi jobId
-        if not retrySuccess then
-            getgenv().FailedJobIds[jobId] = tick()
-            SetText("Kata | Fail 5 lần server #" .. triedCount .. " → Đổi jobId...")
-        end
-        i = i + 1
-
-        -- Hết danh sách hiện tại → reload API để rà soát lại toàn bộ
-        if i > #filtered then
-            SetText("Kata | Hết server → Reload API...")
-            task.wait(2)
-            local newList, newErr = FetchFilteredServers()
-            if newList and #newList > 0 then
-                filtered = newList
-                i = 1
-                SetText("Kata | Reload xong: " .. #filtered .. " server")
-            else
-                -- Không có server mới → đợi rồi thử lại
-                SetText("Kata | Không có server mới | Đợi " .. waitTime .. "s...")
-                for w = waitTime, 1, -1 do
-                    if getgenv().StopKata then break end
-                    SetText("Kata | Đợi API: " .. w .. "s")
-                    task.wait(1)
-                end
-                -- Reload lần cuối
-                newList, newErr = FetchFilteredServers()
-                filtered = newList or {}
-                i = 1
-            end
-        end
-    end
-
-    isHopping = false
-    return false
+    end)
+    task.wait(9e9)
 end
--- ============================================================
---  KILL CAKE PRINCE  (logic target từ bigupcy + tên boss thay)
--- ============================================================
-local function FindAndKillCakePrince()
-    local boss = GetConnectionEnemies("Cake Prince")
-    if not boss then return false end
-    SetText("Kata | Tìm thấy Cake Prince! Attack...")
-    local hrp = boss:FindFirstChild("HumanoidRootPart")
-    repeat
-        task.wait()
-        if getgenv().StopKata then break end
-        if not boss or not boss.Parent then break end
-        hrp = boss:FindFirstChild("HumanoidRootPart")
-        if not hrp then break end
-        local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-        -- Nếu bị die: chờ respawn rồi TweenTo cổng để vào lại Mirror World
-        if not myHrp or (LP.Character:FindFirstChildOfClass("Humanoid") and LP.Character:FindFirstChildOfClass("Humanoid").Health <= 0) then
-            SetText("Kata | Bị die! Đợi respawn...")
-            repeat task.wait(0.5)
-            until LP.Character
-                and LP.Character:FindFirstChild("HumanoidRootPart")
-                and LP.Character:FindFirstChildOfClass("Humanoid")
-                and LP.Character:FindFirstChildOfClass("Humanoid").Health > 0
-            SetText("Kata | Đã respawn → TweenTo cổng Mirror World...")
-            BypassTpToCakeLoaf()
-            task.wait(1)
-            continue
+
+repeat task.wait() until LocalPlayer.Character
+
+local Character = LocalPlayer.Character
+local Humanoid = Character:WaitForChild("Humanoid")
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    Character = newChar
+    Humanoid = newChar:WaitForChild("Humanoid")
+    HumanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
+end)
+
+-- Auto Haki/Buso Loop
+task.spawn(function()
+    while task.wait(2) do
+        local char = Players.LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChild("Humanoid")
+            if hum and hum.Health > 0 and not char:FindFirstChild("HasBuso") then
+                local commF = game.ReplicatedStorage:FindFirstChild("Remotes") and game.ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+                if commF then 
+                    pcall(function() commF:InvokeServer("Buso") end) 
+                end
+            end
         end
-        local dist = (myHrp.Position - hrp.Position).Magnitude
-        if dist > 80 then
-            TweenTo(hrp.CFrame * CFrame.new(0, 15, 0))
-            task.wait(0.5)
+    end
+end)
+
+local Services = {}
+setmetatable(Services, {
+    __index = function(_, Index)
+        return game:GetService(Index)
+    end
+})
+
+local Enemies = {}
+setmetatable(Enemies, {
+    __index = function(_, Index)
+        return Services.Workspace.Enemies:FindFirstChild(Index) or Services.ReplicatedStorage:FindFirstChild(Index)
+    end
+})
+
+local Tools = {}
+setmetatable(Tools, {
+    __index = function(_, Index)
+        return LocalPlayer.Character:FindFirstChild(Index) or LocalPlayer.Backpack:FindFirstChild(Index)
+    end
+})
+
+local CommF_ = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_")
+
+local function urlencode(str)
+    str = tostring(str)
+    str = str:gsub("\n", "\r\n")
+    str = str:gsub("([^%w%-_%.~])", function(c)
+        return string.format("%%%02X", string.byte(c))
+    end)
+    return str
+end
+
+local function CaculateDistance(Origin, Destination)
+    Destination = Destination or LocalPlayer.Character.HumanoidRootPart.CFrame
+    local function conv(v)
+        return Vector3.new(v.X, v.Y, v.Z)
+    end
+    return (conv(Origin) - conv(Destination)).Magnitude
+end
+
+local function ConvertTo(Type, Instance)
+    return Type.new(Instance.X, Instance.Y, Instance.Z)
+end
+
+local Portals = {} -- Fill this with Sea 3 portal Vector3s if you have them!
+local function GetPortal(Position)
+    local Nearest, Current = 9e9, nil
+    for _, Portal in pairs(Portals) do
+        local Dist1 = CaculateDistance(Portal, Position)
+        if Dist1 < (CaculateDistance(Position) - 300) and Dist1 < Nearest then
+            Nearest = Dist1
+            Current = Portal
         end
-        local hp = math.floor(boss.Humanoid.Health / boss.Humanoid.MaxHealth * 100)
-        SetText("Kata | Cake Prince HP: " .. hp .. "% | Đang kill...")
-        EquipByTip("Melee")
-        KillMonster("Cake Prince")
-        pcall(function() getgenv().Attack() end)
-    until not boss or not boss.Parent or boss.Humanoid.Health <= 0 or getgenv().StopKata
-    if boss and boss.Parent and boss.Humanoid.Health <= 0 then
-        SetText("Kata | Cake Prince đã chết!")
-        task.wait(3)
+    end
+
+    if Current then
+        local CommF_ = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_")
+        CommF_:InvokeServer("requestEntrance", Current)
         return true
     end
     return false
 end
--- ============================================================
---  ANTI STUCK
--- ============================================================
-task.spawn(function()
-    local lastPos   = Vector3.zero
-    local stuckTime = 0
-    while task.wait(1) do
-        if not getgenv().StopKata and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-            local currentPos = LP.Character.HumanoidRootPart.Position
-            if (currentPos - lastPos).Magnitude < 2 then
-                stuckTime = stuckTime + 1
-                if stuckTime >= 120 then
-                    SetText("Kata | Stuck 120s → HopAPI!")
-                    HopApiCakePrince(12, 10)
-                    stuckTime = 0
-                end
-            else
-                stuckTime = 0
-                lastPos   = currentPos
+
+local TweenInstance = nil
+local function TweenTo(Position)
+    if not Position then return end
+    Position = typeof(Position) ~= "CFrame" and ConvertTo(CFrame, Position) or Position
+
+    if CaculateDistance(Position) > 500 then
+        if GetPortal(Position) then
+            task.wait(0.5)
+        end
+    end
+
+    if TweenInstance then
+        pcall(function() TweenInstance:Cancel() end)
+    end
+
+    for _, Part in LocalPlayer.Character:GetDescendants() do
+        if Part:IsA("BasePart") then
+            Part.CanCollide = false
+        end
+    end
+
+    local Head = LocalPlayer.Character:WaitForChild("Head")
+    if not Head:FindFirstChild("cakehop_bv") then
+        local bv = Instance.new("BodyVelocity")
+        bv.Name = "cakehop_bv"
+        bv.MaxForce = Vector3.new(0, math.huge, 0)
+        bv.Velocity = Vector3.zero
+        bv.Parent = Head
+    end
+
+    Position = CFrame.new(Position.Position)
+    local PlayerPos = LocalPlayer.Character.HumanoidRootPart.CFrame
+    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(PlayerPos.X, Position.Y, PlayerPos.Z)
+
+    local Dist = CaculateDistance(LocalPlayer.Character.HumanoidRootPart.CFrame, Position)
+    TweenInstance = Services.TweenService:Create(
+        LocalPlayer.Character.HumanoidRootPart,
+        TweenInfo.new(Dist / (Dist < 18 and 25 or 330), Enum.EasingStyle.Linear),
+        {CFrame = Position}
+    )
+    TweenInstance:Play()
+end
+
+RunService.Stepped:Connect(function()
+    if LocalPlayer.Character then
+        for _, child in pairs(LocalPlayer.Character:GetDescendants()) do
+            if child:IsA("BasePart") and child.CanCollide then
+                child.CanCollide = false
             end
         end
     end
 end)
--- ============================================================
---  KIỂM TRA ĐANG Ở CakeLoaf (chỉ dùng khi mới khởi động)
--- ============================================================
-local function IsOnCakeLoaf()
-    local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return false end
-    return (hrp.Position - CAKELOAF_LAND).Magnitude <= CAKELOAF_RADIUS
-end
--- ============================================================
---  MAIN LOOP
--- ============================================================
-SetText("Kata | Khởi động Farm Cake Prince...")
-task.wait(2)
 
--- Bước 0: Nếu mới bắt đầu mà chưa ở CakeLoaf → TweenTo đảo trước
-if not IsOnCakeLoaf() then
-    GoToCakeLoaf()
-    task.wait(1)
-end
-
-while not getgenv().StopKata do
-    task.wait(1)
-    -- Bước 1: Check có boss Cake Prince không
-    if HasCakePrince() then
-        SetText("Kata | Có Cake Prince! Đang TP đến cổng...")
-        -- Bước 2: Bypass TP đến cổng Mirror World
-        BypassTpToCakeLoaf()
-        task.wait(2)
-        -- Bước 3: Kill boss
-        local killed = FindAndKillCakePrince()
-        if killed then
-            SetText("Kata | Boss xong! HopAPI tìm boss mới...")
-            task.wait(3)
-            HopApiCakePrince(12, 25)
-        else
-            SetText("Kata | Không kill được boss → HopAPI...")
-            task.wait(2)
-            HopApiCakePrince(12, 15)
+local function EquipTool(Tool)
+    for _, Item in LocalPlayer.Backpack:GetChildren() do
+        if Item:IsA("Tool") and (Item.Name == tostring(Tool) or Item.ToolTip == Tool) then
+            LocalPlayer.Character:WaitForChild("Humanoid"):EquipTool(Item)
+            break
         end
-    else
-        -- Bước 4: Không có boss → HopAPI
-        SetText("Kata | Không có Cake Prince → HopAPI...")
-        HopApiCakePrince(12, 25)
     end
 end
-SetText("Kata | Đã dừng.")
+
+local Modules = ReplicatedStorage:WaitForChild("Modules")
+local Net = Modules:WaitForChild("Net")
+local RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
+local RegisterHit = Net:WaitForChild("RE/RegisterHit")
+
+local function GetAllBladeHits()
+    local hits = {}
+    for _, v in pairs(workspace.Enemies:GetChildren()) do
+        if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0
+            and (v.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <= 65 then
+            table.insert(hits, v)
+        end
+    end
+    return hits
+end
+
+local _G_FastAttack = 0
+
+local function Attack()
+    pcall(function()
+        _G_FastAttack = os.time()
+    end)
+end
+
+local NetModule = require(Net)
+local RegAttackRemote = NetModule:RemoteEvent("RegisterAttack", true)
+local RegHitRemote = NetModule:RemoteEvent("RegisterHit", true)
+
+task.spawn(function()
+    while task.wait(0.06) do
+        if _G_FastAttack == os.time() then
+            pcall(function()
+                local bladehits = GetAllBladeHits()
+                if #bladehits == 0 then return end
+                local args = {[1] = nil, [2] = {}, [4] = "078da341"}
+                for _, v in pairs(bladehits) do
+                    RegAttackRemote:FireServer(0)
+                    if not args[1] then args[1] = v.Head end
+                    table.insert(args[2], {[1] = v, [2] = v.HumanoidRootPart})
+                    table.insert(args[2], v)
+                end
+                RegHitRemote:FireServer(unpack(args))
+            end)
+        end
+    end
+end)
+
+local Angle = 40
+local lastChange = tick()
+local function CaculateCircreDirection(Position)
+    if Angle > 50000 then Angle = 60 end
+    Angle = Angle + ((tick() - lastChange) > 0.4 and 80 or 0)
+    if tick() - lastChange > 0.4 then lastChange = tick() end
+    local function roundVec(vec)
+        return Vector3.new(math.floor(vec.X/10)*10, math.floor(vec.Y/10)*10, math.floor(vec.Z/10)*10)
+    end
+    local sum = Position + Vector3.new(math.cos(math.rad(Angle)) * 40, 0, math.sin(math.rad(Angle)) * 40)
+    return CFrame.new(roundVec(sum))
+end
+
+local GrabDebounce = 0
+local function GrabMob(MobName)
+    if GrabDebounce == os.time() then return end
+    GrabDebounce = os.time()
+
+    pcall(sethiddenproperty, LocalPlayer, "SimulationRadius", math.huge)
+
+    local MidPoint, Count = Vector3.zero, 0
+    local MobsTable = {}
+
+    for _, Mon in Services.Workspace.Enemies:GetChildren() do
+        if Mon.Name == MobName and Mon:FindFirstChild("Humanoid") and Mon.Humanoid.Health > 0 then
+            local MonPosition = Mon.HumanoidRootPart.Position
+            if MonPosition and isnetworkowner(Mon.PrimaryPart) then
+                Count = Count + 1
+                Mon:SetAttribute("OldPosition", Mon:GetAttribute("OldPosition") or MonPosition)
+                MidPoint = MidPoint + MonPosition
+                table.insert(MobsTable, Mon)
+            end
+        end
+    end
+
+    if Count == 0 then return end
+    MidPoint = CFrame.new(MidPoint / Count)
+
+    for _, Mon in ipairs(MobsTable) do
+        pcall(function()
+            if Mon:GetAttribute("IgnoreGrab") then return end
+            local RootPart = Mon:FindFirstChild("HumanoidRootPart")
+            if not RootPart then return end
+
+            local bv = RootPart:FindFirstChild("FarmingVelocity") or Instance.new("BodyVelocity")
+            bv.Name = "FarmingVelocity"
+            bv.MaxForce = Vector3.new(4000, 4000, 4000)
+            bv.Velocity = Vector3.zero
+            bv.Parent = RootPart
+
+            local bp = RootPart:FindFirstChild("FarmingPosition") or Instance.new("BodyPosition")
+            bp.Name = "FarmingPosition"
+            bp.MaxForce = Vector3.new(4000, 4000, 4000)
+            bp.P = 4.12
+            bp.D = 1000
+            bp.Parent = RootPart
+
+            Mon:SetAttribute("IsGrabbed", true)
+            Mon.HumanoidRootPart.CFrame = MidPoint
+        end)
+    end
+end
+
+local function GetCakePrince()
+    local mob = Enemies["Cake Prince"]
+    if mob and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+        return mob
+    end
+    return nil
+end
+
+local function AttackCakePrince(mob)
+    while task.wait() do
+        local MobHumanoid = mob:FindFirstChild("Humanoid")
+        local MobHRP = mob:FindFirstChild("HumanoidRootPart")
+
+        if not MobHumanoid or MobHumanoid.Health <= 0 then
+            return true
+        end
+
+        TweenTo(CaculateCircreDirection(MobHRP.CFrame) + Vector3.new(0, 35, 0))
+
+        local dist = CaculateDistance(MobHRP.Position + Vector3.new(0, 35, 0))
+        if dist < 150 then
+            GrabMob("Cake Prince")
+            EquipTool("Melee")
+            Attack()
+        end
+    end
+
+    return false
+end
+
+local function fetchServers()
+    local url = "http://mbasic7.pikamc.vn:25082/api/name=cakeprince?apikey=CONCACDUMAMAY"
+    local success, result = pcall(function()
+        local raw = request({Url = url, Method = "GET"})
+        return HttpService:JSONDecode(raw.Body)
+    end)
+    if not success then return {} end
+    if not result or not result.success
+    or type(result.data) ~= "table"
+    or type(result.data.data) ~= "table" then
+        return {}
+    end
+    return result.data.data
+end
+
+local function hopToServer()
+    local servers = fetchServers()
+    if #servers == 0 then
+        return false
+    end
+
+    local validServers = {}
+    for _, server in ipairs(servers) do
+        local jobId  = server.jobid
+        local placeId = tostring(server.placeid or "")
+        if jobId
+            and jobId ~= game.JobId
+            and placeId == tostring(game.PlaceId)
+        then
+            table.insert(validServers, server)
+        end
+    end
+
+    if #validServers == 0 then
+        return false
+    end
+
+    local target = validServers[math.random(1, #validServers)]
+    ReplicatedStorage:WaitForChild("__ServerBrowser"):InvokeServer("teleport", target.jobid)
+    return true
+end
+
+-- Teleport fail handler
+TeleportService.TeleportInitFailed:Connect(function(player, teleportResult, message)
+    if teleportResult == Enum.TeleportResult.GameFull then
+        task.wait(3)
+        hopToServer()
+    elseif teleportResult == Enum.TeleportResult.IsTeleporting and message:find("previous teleport") then
+        task.wait(10)
+        hopToServer()
+    end
+end)
+
+-- Disconnect error handler
+pcall(function()
+    GuiService.ErrorMessageChanged:Connect(newcclosure(function()
+        if GuiService:GetErrorType() == Enum.ConnectionError.DisconnectErrors then
+            TeleportService:TeleportReconnect()
+        end
+    end))
+end)
+
+-- Main loop
+while true do
+    local mob = GetCakePrince()
+
+    if mob then
+
+        local killed = AttackCakePrince(mob)
+
+        if killed then
+            task.wait(3)
+        end
+
+        hopToServer()
+        task.wait(15)
+    else
+        local found = hopToServer()
+        if not found then
+            task.wait(10)
+        else
+            task.wait(15)
+        end
+    end
+end
