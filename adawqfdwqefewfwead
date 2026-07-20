@@ -2188,6 +2188,9 @@ local function CheckAPIAndJoin()
         baseUrl .. "/api/data/doughking",
         baseUrl .. "/api/data/ripindra"
     }
+    local apiError = false
+    local foundAnyBoss = false
+    
     for _, url in pairs(urls) do
         local success, res = pcall(function()
             return request({
@@ -2205,6 +2208,7 @@ local function CheckAPIAndJoin()
                 end
                 
                 if foundEvent and foundEvent.JobId and foundEvent.JobId ~= "" then
+                    foundAnyBoss = true
                     if foundEvent.JobId == myJobId then
                         local bType = "Dough King"
                         if string.find(url, "ripindra") then bType = "Rip Indra" end
@@ -2237,8 +2241,15 @@ local function CheckAPIAndJoin()
                     end
                 end
             end
+        else
+            apiError = true
         end
     end
+    
+    if apiError and not foundAnyBoss then
+        return "API_ERROR"
+    end
+    return false
     return false
 end
 
@@ -2531,12 +2542,17 @@ spawn(LPH_NO_VIRTUALIZE(function()
                         if apiStatus == "IN_SERVER" then
                             if bossType == "Dough King" then
                                 getgenv().CurrentFarmTask = 'Waiting at Cake Loaf for Dough King...'
-                                pcall(function() TP1(game.workspace.Map.CakeLoaf.BigMirror.Main.CFrame) end)
+                                local dest = CFrame.new(-2154, 70, -11933)
+                                pcall(function() dest = game.workspace.Map.CakeLoaf.BigMirror.Main.CFrame end)
+                                pcall(function() TP1(dest) end)
                             elseif bossType == "Rip Indra" then
                                 getgenv().CurrentFarmTask = 'Waiting at Castle for Rip Indra...'
                                 pcall(function() TP1(CFrame.new(-5029, 314, -3158)) end)
                             end
                             task.wait(2)
+                        elseif apiStatus == "API_ERROR" then
+                            getgenv().CurrentFarmTask = 'API Error! Waiting...'
+                            task.wait(3)
                         elseif not apiStatus then
                             if FuncRequirements['Elites']() then
                                 getgenv().CurrentFarmTask = 'API Joiner: Farming Elite / Checking API'
