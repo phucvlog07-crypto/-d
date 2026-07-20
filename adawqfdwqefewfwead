@@ -2250,7 +2250,6 @@ local function CheckAPIAndJoin()
         return "API_ERROR"
     end
     return false
-    return false
 end
 
 local DoughBoss = {
@@ -2540,14 +2539,23 @@ spawn(LPH_NO_VIRTUALIZE(function()
                     else
                         local apiStatus, bossType = CheckAPIAndJoin()
                         if apiStatus == "IN_SERVER" then
+                            local dest = nil
                             if bossType == "Dough King" then
                                 getgenv().CurrentFarmTask = 'Waiting at Cake Loaf for Dough King...'
-                                local dest = CFrame.new(-2154, 70, -11933)
+                                dest = CFrame.new(-2154, 70, -11933)
                                 pcall(function() dest = game.workspace.Map.CakeLoaf.BigMirror.Main.CFrame end)
-                                pcall(function() TP1(dest) end)
                             elseif bossType == "Rip Indra" then
                                 getgenv().CurrentFarmTask = 'Waiting at Castle for Rip Indra...'
-                                pcall(function() TP1(CFrame.new(-5029, 314, -3158)) end)
+                                dest = CFrame.new(-5029, 314, -3158)
+                            end
+                            
+                            if dest then
+                                pcall(function()
+                                    local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                                    if hrp and (hrp.Position - dest.Position).Magnitude > 50 then
+                                        TP1(dest)
+                                    end
+                                end)
                             end
                             task.wait(2)
                         elseif apiStatus == "API_ERROR" then
