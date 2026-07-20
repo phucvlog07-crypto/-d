@@ -1145,7 +1145,8 @@ function HopServer(max)
                     end)
                 end)
             end
-    end)
+        end -- close for loop
+    end) -- close pcall
 
     task.wait(math.random(3, 15))
     return HopServer(max)
