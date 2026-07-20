@@ -2215,15 +2215,24 @@ local function CheckAPIAndJoin()
                         return "IN_SERVER", bType
                     else
                         local targetJob = foundEvent.JobId
-                        local targetPlace = tonumber(foundEvent.PlaceId) or tonumber(foundEvent.PlaceID) or 100117331123089
-                        if targetPlace == 7449423635 then targetPlace = 100117331123089 end
+                        local targetPlace = tonumber(foundEvent.PlaceId) or tonumber(foundEvent.PlaceID) or 7449423635
                         
                         getgenv().FailedAPIJoins[targetJob] = (getgenv().FailedAPIJoins[targetJob] or 0) + 1
                         if getgenv().FailedAPIJoins[targetJob] <= 1 then
                             getgenv().CurrentFarmTask = 'Found Boss on API! Joining...'
                             
                             pcall(function()
-                                game:GetService("TeleportService"):TeleportToPlaceInstance(targetPlace, targetJob, game.Players.LocalPlayer)
+                                local sb = game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser", 3)
+                                if sb then
+                                    sb:InvokeServer("teleport", targetJob)
+                                end
+                            end)
+                            
+                            task.spawn(function()
+                                task.wait(2)
+                                pcall(function()
+                                    game:GetService("TeleportService"):TeleportToPlaceInstance(targetPlace, targetJob, game.Players.LocalPlayer)
+                                end)
                             end)
                             
                             task.wait(15)
