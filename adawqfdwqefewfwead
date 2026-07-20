@@ -2389,13 +2389,112 @@ spawn(LPH_NO_VIRTUALIZE(function()
                             getgenv().CurrentFarmTask = 'Killing ' .. target.Name
                             KillNigga(target, false)
                         end
-                    elseif getgenv().IsHunter then
-                        if chalice then
-                            local isDoughHunter = getgenv().HunterRole == "Dough King"
+                    elseif chalice then
+                        local isDoughHunter = getgenv().HunterRole == "Dough King"
+                        
+                        if isDoughHunter then
+                            if not getgenv().PostedDoughKingAPI then
+                                sendToArya("TÌM THẤY CHÉN THÁNH! Role Dough King -> Ưu tiên đi ép chén Bánh Ngọt!", "Dough King")
+                                getgenv().PostedDoughKingAPI = true
+                            end
+                            if CheckMaterialCount("Conjured Cocoa") >= 10 then
+                                TP1(CFrame.new(-829, 381, -11195))
+                                task.wait(1)
+                                CommF:InvokeServer("SweetChaliceNpc")
+                                task.wait(2)
+                            else
+                                getgenv().CurrentFarmTask = 'Farming Dough King (Thiếu Cacao)'
+                                KillMobList({ "Cocoa Warrior", "Chocolate Bar Battler" }, false)
+                            end
+                        else
+                            getgenv().CurrentFarmTask = 'Checking Rip Indra Buttons'
+                            autohaki()
                             
-                            if isDoughHunter then
+                            local allGreen = true
+                            if getgenv().CheckedHakiButtons == nil then
+                                TP1(CFrame.new(-5543.5, 313.8, -2964.2))
+                                task.wait(1)
+                                
+                                local bc = workspace.Map:WaitForChild("Boat Castle", 5)
+                                if bc then
+                                    local Summoner = bc:FindFirstChild("Summoner")
+                                    if Summoner and Summoner:FindFirstChild("Circle") then
+                                        local ID = {
+                                            ["Really red"] = "Pure Red",
+                                            ["Oyster"] = "Snow White",
+                                            ["Hot pink"] = "Winter Sky"
+                                        }
+                                        for _, v in pairs(Summoner:FindFirstChild("Circle"):GetChildren()) do
+                                            if v.Name == "Part" then
+                                                local TogglesPart = v:FindFirstChild("Part")
+                                                if TogglesPart and tostring(TogglesPart.BrickColor) ~= "Lime green" then
+                                                    local colorName = ID[tostring(v.BrickColor)]
+                                                    if colorName then
+                                                        pcall(function()
+                                                            game.ReplicatedStorage.Modules.Net["RF/FruitCustomizerRF"]:InvokeServer({
+                                                                ["StorageName"] = colorName,
+                                                                ["Type"] = "AuraSkin",
+                                                                ["Context"] = "Equip"
+                                                            })
+                                                        end)
+                                                        task.wait(0.5)
+                                                        TP1(v.CFrame)
+                                                        task.wait(1)
+                                                        if tostring(TogglesPart.BrickColor) ~= "Lime green" then
+                                                            pcall(function()
+                                                                firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, v, 0)
+                                                                task.wait(0.3)
+                                                                firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, v, 1)
+                                                            end)
+                                                            task.wait(0.5)
+                                                        end
+                                                        if tostring(TogglesPart.BrickColor) ~= "Lime green" then
+                                                            allGreen = false
+                                                        end
+                                                    end
+                                                end
+                                            end
+                                        end
+                                    else
+                                        allGreen = false
+                                    end
+                                else
+                                    allGreen = false
+                                end
+                                
+                                getgenv().CheckedHakiButtons = true
+                                getgenv().HasAll3Haki = allGreen
+                            else
+                                allGreen = getgenv().HasAll3Haki
+                            end
+                            
+                            if allGreen then
+                                if not getgenv().PostedRipIndraAPI then
+                                    sendToArya("TÌM THẤY CHÉN THÁNH! Đủ 3 Haki -> Gọi Rip Indra!", "Rip Indra")
+                                    getgenv().PostedRipIndraAPI = true
+                                end
+                                getgenv().CurrentFarmTask = 'Summoning Rip_Indra'
+                                
+                                local BoatCastle = workspace.Map:FindFirstChild("Boat Castle")
+                                if not BoatCastle then
+                                    TP1(CFrame.new(-5543.5, 313.8, -2964.2))
+                                else
+                                    local Summoner = BoatCastle:FindFirstChild("Summoner")
+                                    if Summoner and Summoner:FindFirstChild("Detection") then
+                                        TP1(Summoner.Detection.CFrame)
+                                        task.wait(1)
+                                        local physicalChalice = game.Players.LocalPlayer.Backpack:FindFirstChild("God's Chalice")
+                                        if physicalChalice and game.Players.LocalPlayer.Character:FindFirstChild("God's Chalice") == nil then
+                                            game.Players.LocalPlayer.Character.Humanoid:EquipTool(physicalChalice)
+                                        end
+                                        firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, Summoner.Detection, 0)
+                                        task.wait(0.5)
+                                        firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, Summoner.Detection, 1)
+                                    end
+                                end
+                            else
                                 if not getgenv().PostedDoughKingAPI then
-                                    sendToArya("TÌM THẤY CHÉN THÁNH! Role Dough King -> Ưu tiên đi ép chén Bánh Ngọt!", "Dough King")
+                                    sendToArya("TÌM THẤY CHÉN THÁNH! Thiếu Haki -> Đổi sang Dough King!", "Dough King")
                                     getgenv().PostedDoughKingAPI = true
                                 end
                                 if CheckMaterialCount("Conjured Cocoa") >= 10 then
@@ -2407,118 +2506,19 @@ spawn(LPH_NO_VIRTUALIZE(function()
                                     getgenv().CurrentFarmTask = 'Farming Dough King (Thiếu Cacao)'
                                     KillMobList({ "Cocoa Warrior", "Chocolate Bar Battler" }, false)
                                 end
-                            else
-                                getgenv().CurrentFarmTask = 'Checking Rip Indra Buttons'
-                                autohaki()
-                                
-                                local allGreen = true
-                                if getgenv().CheckedHakiButtons == nil then
-                                    TP1(CFrame.new(-5543.5, 313.8, -2964.2))
-                                    task.wait(1)
-                                    
-                                    local bc = workspace.Map:WaitForChild("Boat Castle", 5)
-                                    if bc then
-                                        local Summoner = bc:FindFirstChild("Summoner")
-                                        if Summoner and Summoner:FindFirstChild("Circle") then
-                                            local ID = {
-                                                ["Really red"] = "Pure Red",
-                                                ["Oyster"] = "Snow White",
-                                                ["Hot pink"] = "Winter Sky"
-                                            }
-                                            for _, v in pairs(Summoner:FindFirstChild("Circle"):GetChildren()) do
-                                                if v.Name == "Part" then
-                                                    local TogglesPart = v:FindFirstChild("Part")
-                                                    if TogglesPart and tostring(TogglesPart.BrickColor) ~= "Lime green" then
-                                                        local colorName = ID[tostring(v.BrickColor)]
-                                                        if colorName then
-                                                            pcall(function()
-                                                                game.ReplicatedStorage.Modules.Net["RF/FruitCustomizerRF"]:InvokeServer({
-                                                                    ["StorageName"] = colorName,
-                                                                    ["Type"] = "AuraSkin",
-                                                                    ["Context"] = "Equip"
-                                                                })
-                                                            end)
-                                                            task.wait(0.5)
-                                                            TP1(v.CFrame)
-                                                            task.wait(1)
-                                                            if tostring(TogglesPart.BrickColor) ~= "Lime green" then
-                                                                pcall(function()
-                                                                    firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, v, 0)
-                                                                    task.wait(0.3)
-                                                                    firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, v, 1)
-                                                                end)
-                                                                task.wait(0.5)
-                                                            end
-                                                            if tostring(TogglesPart.BrickColor) ~= "Lime green" then
-                                                                allGreen = false
-                                                            end
-                                                        end
-                                                    end
-                                                end
-                                            end
-                                        else
-                                            allGreen = false
-                                        end
-                                    else
-                                        allGreen = false
-                                    end
-                                    
-                                    getgenv().CheckedHakiButtons = true
-                                    getgenv().HasAll3Haki = allGreen
-                                else
-                                    allGreen = getgenv().HasAll3Haki
-                                end
-                                
-                                if allGreen then
-                                    if not getgenv().PostedRipIndraAPI then
-                                        sendToArya("TÌM THẤY CHÉN THÁNH! Đủ 3 Haki -> Gọi Rip Indra!", "Rip Indra")
-                                        getgenv().PostedRipIndraAPI = true
-                                    end
-                                    getgenv().CurrentFarmTask = 'Summoning Rip_Indra'
-                                    
-                                    local BoatCastle = workspace.Map:FindFirstChild("Boat Castle")
-                                    if not BoatCastle then
-                                        TP1(CFrame.new(-5543.5, 313.8, -2964.2))
-                                    else
-                                        local Summoner = BoatCastle:FindFirstChild("Summoner")
-                                        if Summoner and Summoner:FindFirstChild("Detection") then
-                                            TP1(Summoner.Detection.CFrame)
-                                            task.wait(1)
-                                            local physicalChalice = game.Players.LocalPlayer.Backpack:FindFirstChild("God's Chalice")
-                                            if physicalChalice and game.Players.LocalPlayer.Character:FindFirstChild("God's Chalice") == nil then
-                                                game.Players.LocalPlayer.Character.Humanoid:EquipTool(physicalChalice)
-                                            end
-                                            firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, Summoner.Detection, 0)
-                                            task.wait(0.5)
-                                            firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, Summoner.Detection, 1)
-                                        end
-                                    end
-                                else
-                                    if not getgenv().PostedDoughKingAPI then
-                                        sendToArya("TÌM THẤY CHÉN THÁNH! Thiếu Haki -> Đổi sang Dough King!", "Dough King")
-                                        getgenv().PostedDoughKingAPI = true
-                                    end
-                                    if CheckMaterialCount("Conjured Cocoa") >= 10 then
-                                        TP1(CFrame.new(-829, 381, -11195))
-                                        task.wait(1)
-                                        CommF:InvokeServer("SweetChaliceNpc")
-                                        task.wait(2)
-                                    else
-                                        getgenv().CurrentFarmTask = 'Farming Dough King (Thiếu Cacao)'
-                                        KillMobList({ "Cocoa Warrior", "Chocolate Bar Battler" }, false)
-                                    end
-                                end
                             end
-                        elseif sweetChalice then
-                            getgenv().CurrentFarmTask = 'Spawning Dough King / Farming 500 Mobs'
-                            CommF:InvokeServer("CakePrinceSpawner")
-                            KillMobList({
-                                "Cookie Crafter",
-                                "Cake Guard",
-                                "Head Baker",
-                                "Baking Staff"
-                            }, false)
-                        elseif FuncRequirements['Elites']() then
+                        end
+                    elseif sweetChalice then
+                        getgenv().CurrentFarmTask = 'Spawning Dough King / Farming 500 Mobs'
+                        CommF:InvokeServer("CakePrinceSpawner")
+                        KillMobList({
+                            "Cookie Crafter",
+                            "Cake Guard",
+                            "Head Baker",
+                            "Baking Staff"
+                        }, false)
+                    elseif getgenv().IsHunter then
+                        if FuncRequirements['Elites']() then
                             getgenv().CurrentFarmTask = 'Farming Elite'
                             farmelite()
                         else
