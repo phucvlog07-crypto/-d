@@ -2499,8 +2499,8 @@ spawn(LPH_NO_VIRTUALIZE(function()
                                 getgenv().CurrentFarmTask = 'API Joiner: Farming Elite / Checking API'
                                 farmelite()
                             else
-                                getgenv().CurrentFarmTask = 'API Joiner: Waiting for Boss on API...'
-                                task.wait(5)
+                                getgenv().CurrentFarmTask = 'API Joiner: Hopping to find Boss & Checking API...'
+                                HopServer()
                             end
                         end
                     end
