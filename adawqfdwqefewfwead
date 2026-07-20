@@ -6,6 +6,24 @@ repeat task.wait() until game:IsLoaded() and game:GetService("Players").LocalPla
 local config = getgenv().ConfigHunter or {}
 local clientKey = config.Key or ""
 
+-- HỖ TRỢ JOIN JOB ID TỪ FILE NGAY KHI KHỞI ĐỘNG
+pcall(function()
+    if readfile and isfile and isfile("jobid.txt") then
+        local targetJob = readfile("jobid.txt"):gsub("%s+", "")
+        if targetJob and targetJob ~= "" then
+            print("Found jobid.txt! Joining...", targetJob)
+            pcall(function() delfile("jobid.txt") end) -- Xóa file để không loop join
+            
+            pcall(function()
+                local sb = game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser", 3)
+                if sb then sb:InvokeServer("teleport", targetJob) end
+            end)
+            task.wait(2)
+            game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, targetJob, game.Players.LocalPlayer)
+        end
+    end
+end)
+
 if clientKey == "" then
     game.Players.LocalPlayer:Kick("Vui lòng nhập Key vào ConfigHunter để sử dụng script!")
     return
@@ -1113,11 +1131,20 @@ function HopServer(max)
             end
 
             Notify("Teleporting to", ServerData.JobId, "...")
-            game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser"):InvokeServer(
-                "teleport",
-                ServerData.JobId
-            )
-        end
+            local success = pcall(function()
+                local sb = game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser", 3)
+                if sb then
+                    sb:InvokeServer("teleport", ServerData.JobId)
+                end
+            end)
+            if not success then
+                task.spawn(function()
+                    task.wait(1)
+                    pcall(function()
+                        game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, ServerData.JobId, game.Players.LocalPlayer)
+                    end)
+                end)
+            end
     end)
 
     task.wait(math.random(3, 15))
@@ -2212,21 +2239,22 @@ local function CheckAPIAndJoin()
                 
                 if foundEvent and foundEvent.JobId and foundEvent.JobId ~= "" and foundEvent.JobId ~= myJobId then
                     local targetJob = foundEvent.JobId
-                    local targetPlace = foundEvent.PlaceId or foundEvent.PlaceID or game.PlaceId
+                    local targetPlace = tonumber(foundEvent.PlaceId) or tonumber(foundEvent.PlaceID) or 7449423635
                     
                     getgenv().FailedAPIJoins[targetJob] = (getgenv().FailedAPIJoins[targetJob] or 0) + 1
                     if getgenv().FailedAPIJoins[targetJob] <= 2 then
                         getgenv().CurrentFarmTask = 'Found Boss on API! Joining...'
                         
                         pcall(function()
-                            game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser"):InvokeServer("teleport", targetJob)
+                            local sb = game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser", 3)
+                            if sb then
+                                sb:InvokeServer("teleport", targetJob)
+                            end
                         end)
                         
                         task.spawn(function()
                             task.wait(2)
                             pcall(function()
-                                local SEA3_PLACE_ID = 100117331123089
-                                local targetPlace = foundEvent.PlaceId or foundEvent.PlaceID or SEA3_PLACE_ID
                                 game:GetService("TeleportService"):TeleportToPlaceInstance(targetPlace, targetJob, game.Players.LocalPlayer)
                             end)
                         end)
