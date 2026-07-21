@@ -1063,12 +1063,19 @@ function TP1(pos, normal, Condition)
             tween = nil
         end
         
-        tween = game:GetService("TweenService"):Create(
-		 game.Players.LocalPlayer.Character.HumanoidRootPart,
-            TweenInfo.new(Time, Enum.EasingStyle.Linear),
-            { CFrame = Pos }
-        )
-        tween:Play()    
+        local hasCup = hasGodChalice() or hasSweetChalice()
+        if not hasCup then
+            -- Bypass TP (Instant TP instead of Tween)
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = Pos
+            task.wait(0.1)
+        else
+            tween = game:GetService("TweenService"):Create(
+             game.Players.LocalPlayer.Character.HumanoidRootPart,
+                TweenInfo.new(Time, Enum.EasingStyle.Linear),
+                { CFrame = Pos }
+            )
+            tween:Play()
+        end    
     until not IsPlayerAlive() or q1(Pos.Position, game.Players.LocalPlayer.Character.HumanoidRootPart.Position) < 3 or tick() - count >= 60
     
     if Noclipping then
