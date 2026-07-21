@@ -725,8 +725,8 @@ GetNearSpawn = function(TargetedPos)
     while not IsPlayerAlive() do
         task.wait()
     end
-    if Character.HumanoidRootPart then
-        if GetDistance(TargetedPos) < 1000 then
+    if Character and Character:FindFirstChild("HumanoidRootPart") then
+        if GetDistance(TargetedPos) < 200 then
             return nil
         end
     end
@@ -908,7 +908,7 @@ function SSS(Pos, donttp)
     end
     if donttp then return end
     if Pos then
-        if GetDistance(Pos) < 1000 then
+        if GetDistance(Pos) < 200 then
             BypassingTP = false
             return
         end
@@ -919,6 +919,8 @@ function SSS(Pos, donttp)
             for _, v9 in pairs(v7:GetChildren()) do
                 if v9:IsA("Model") then
                     table.insert(ListPos, v9:GetModelCFrame().p)
+                elseif v9:IsA("BasePart") then
+                    table.insert(ListPos, v9.Position)
                 end
             end
         end
@@ -933,19 +935,22 @@ function SSS(Pos, donttp)
             end)
         end
         task.wait()
-        local Found = false
+        
+        local char = game.Players.LocalPlayer.Character
+        if not char then return end
+        
         for i, v in pairs(ListPos) do
-            if GetDistance(v, Pos) + 500 < GetDistance(Pos, Character) and GetDistance(v, LP.Character) >= 1000 then
+            if GetDistance(v, Pos) + 200 < GetDistance(Pos, char) and GetDistance(v, char) >= 200 then
                 BypassingTP = true
                 if CheckBackPack("Special Microchip") then return end
-                if Character:FindFirstChild "LastSpawnPoint" then Character.LastSpawnPoint.Disabled = false end
+                if char:FindFirstChild("LastSpawnPoint") then char.LastSpawnPoint.Disabled = false end
                 local SP, Tag = GetTPLocation(v)
-                if Character:FindFirstChild('LastSpawnPoint') then game:GetService("Players").LocalPlayer.Character.LastSpawnPoint.Disabled = true end
+                if char:FindFirstChild('LastSpawnPoint') then char.LastSpawnPoint.Disabled = true end
                 game.ReplicatedStorage.Remotes.CommF_:InvokeServer("SetLastSpawnPoint", SP);
                 task.wait()
                 if game.Players.LocalPlayer.Data.LastSpawnPoint.Value == SP then
-                    game.Players.LocalPlayer.Character.Humanoid.Health = 0
-                    game.Players.LocalPlayer.Character.Head:Destroy()
+                    char.Humanoid.Health = 0
+                    if char:FindFirstChild("Head") then char.Head:Destroy() end
                     task.wait()
                     while not IsPlayerAlive() do
                         task.wait()
@@ -955,7 +960,7 @@ function SSS(Pos, donttp)
             end
         end
         BypassingTP = false
-        if Character:FindFirstChild('LastSpawnPoint') then game:GetService("Players").LocalPlayer.Character.LastSpawnPoint.Disabled = false end
+        if char:FindFirstChild('LastSpawnPoint') then char.LastSpawnPoint.Disabled = false end
     end
 end
 
@@ -976,7 +981,7 @@ function TP1(pos, normal, Condition)
     if not IsPlayerAlive() then return end
     
     local r = game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if r and q1(Pos.Position, r.Position) > 1000 then
+    if r then
         SSS(GetNearSpawn(Pos), normal)
         task.wait()
     end
@@ -1065,10 +1070,16 @@ function TP1(pos, normal, Condition)
         
         local hasCup = hasGodChalice() or hasSweetChalice()
         if not hasCup then
-            -- Bypass TP (Instant TP instead of Tween)
-            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = Pos
-            task.wait(0.1)
+            -- Bypass TP / Fast TP (Jump CFrame by 300 studs per frame)
+            local dist = q1(Pos.Position, game.Players.LocalPlayer.Character.HumanoidRootPart.Position)
+            if dist > 300 then
+                game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame + (Pos.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Unit * 300
+            else
+                game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = Pos
+            end
+            task.wait()
         else
+            -- Normal Safe Tween
             tween = game:GetService("TweenService"):Create(
              game.Players.LocalPlayer.Character.HumanoidRootPart,
                 TweenInfo.new(Time, Enum.EasingStyle.Linear),
