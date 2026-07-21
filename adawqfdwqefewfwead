@@ -24,8 +24,40 @@ pcall(function()
     end
 end)
 
--- Key check has been bypassed
-print("Bypassed Key Check!")
+if clientKey == "" then
+    game.Players.LocalPlayer:Kick("Vui lòng nhập Key vào ConfigHunter để sử dụng script!")
+    return
+end
+
+local baseUrl = "https://daybreak-frosting-bobbing.ngrok-free.dev"
+local success, res = pcall(function()
+    return request({
+        Url = baseUrl .. "/api/check-key/" .. clientKey,
+        Method = "GET",
+        Headers = {["Bypass-Tunnel-Reminder"] = "true"}
+    })
+end)
+
+if not success or not res then
+    game.Players.LocalPlayer:Kick("Không thể kết nối đến máy chủ kiểm tra Key! Vui lòng thử lại sau.")
+    return
+end
+
+local HttpService = game:GetService("HttpService")
+local data
+local decodeSuccess, err = pcall(function()
+    data = HttpService:JSONDecode(res.Body)
+end)
+
+if not decodeSuccess or not data then
+    game.Players.LocalPlayer:Kick("Lỗi máy chủ kiểm tra Key!")
+    return
+end
+
+if not data.success then
+    game.Players.LocalPlayer:Kick(data.message or "Key không hợp lệ hoặc đã hết hạn!")
+    return
+end
 -- ==========================================
 local indraHunters = config.RipIndraHunters or {}
 local doughHunters = config.DoughKingHunters or {}
@@ -2202,41 +2234,46 @@ local function CheckAPIAndJoin()
         if success and res and res.StatusCode == 200 then
             local data = game:GetService("HttpService"):JSONDecode(res.Body)
             if data and data.data and type(data.data) == "table" then
-                local foundEvent = data.data[1]
-                if not foundEvent and data.data.JobId then
-                    foundEvent = data.data
+                local events = {}
+                if data.data[1] then
+                    events = data.data
+                elseif data.data.JobId then
+                    events = { data.data }
                 end
                 
-                if foundEvent and foundEvent.JobId and foundEvent.JobId ~= "" then
-                    foundAnyBoss = true
-                    if foundEvent.JobId == myJobId then
-                        local bType = "Dough King"
-                        if string.find(url, "ripindra") then bType = "Rip Indra" end
-                        return "IN_SERVER", bType
-                    else
-                        local targetJob = foundEvent.JobId
-                        local targetPlace = tonumber(foundEvent.PlaceId) or tonumber(foundEvent.PlaceID) or 7449423635
-                        
-                        getgenv().FailedAPIJoins[targetJob] = (getgenv().FailedAPIJoins[targetJob] or 0) + 1
-                        if getgenv().FailedAPIJoins[targetJob] <= 1 then
-                            getgenv().CurrentFarmTask = 'Found Boss on API! Joining...'
+                for _, event in ipairs(events) do
+                    if event and event.JobId and event.JobId ~= "" then
+                        foundAnyBoss = true
+                        if event.JobId == myJobId then
+                            local bType = "Dough King"
+                            if string.find(url, "ripindra") then bType = "Rip Indra" end
+                            return "IN_SERVER", bType
+                        else
+                            local targetJob = event.JobId
+                            local targetPlace = tonumber(event.PlaceId) or tonumber(event.PlaceID) or 7449423635
                             
-                            pcall(function()
-                                local sb = game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser", 3)
-                                if sb then
-                                    sb:InvokeServer("teleport", targetJob)
-                                end
-                            end)
-                            
-                            task.spawn(function()
-                                task.wait(2)
+                            local fails = getgenv().FailedAPIJoins[targetJob] or 0
+                            if fails < 3 then
+                                getgenv().FailedAPIJoins[targetJob] = fails + 1
+                                getgenv().CurrentFarmTask = 'Found Boss on API! Joining...'
+                                
                                 pcall(function()
-                                    game:GetService("TeleportService"):TeleportToPlaceInstance(targetPlace, targetJob, game.Players.LocalPlayer)
+                                    local sb = game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser", 3)
+                                    if sb then
+                                        sb:InvokeServer("teleport", targetJob)
+                                    end
                                 end)
-                            end)
-                            
-                            task.wait(15)
-                            return true
+                                
+                                task.spawn(function()
+                                    task.wait(2)
+                                    pcall(function()
+                                        game:GetService("TeleportService"):TeleportToPlaceInstance(targetPlace, targetJob, game.Players.LocalPlayer)
+                                    end)
+                                end)
+                                
+                                task.wait(15)
+                                return true
+                            end
                         end
                     end
                 end
