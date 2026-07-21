@@ -1048,21 +1048,16 @@ function TP1(pos, normal, Condition)
             task.wait()
         end
         
-        local Time = 0
-        if Distance <= 200 then
-            if Distance <= 50 then
-                if tween then 
-                    tween:Cancel() 
-                    tween = nil 
-                end
-                game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = Pos
-                break
-            else
-                Time = 0.25
+        local Time = Distance / 250 -- Tốc độ bay an toàn: 250 studs / 1 giây
+        if Distance <= 50 then
+            if tween then 
+                tween:Cancel() 
+                tween = nil 
             end
-        else
-            Time = Distance / 300
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = Pos
+            break
         end
+        
         if tween then
             tween:Cancel()
             tween = nil
