@@ -395,8 +395,11 @@ do
                 Utils.Info("Teleporting to random server: " .. ServerData.JobId .. " (Players: " .. ServerData.Players .. ")")
                 
                 local q = queue_on_teleport or queueonteleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
-                if q and getgenv().AutoExecuteCode then
-                    pcall(function() q(getgenv().AutoExecuteCode) end)
+                if q then
+                    local myCode = getgenv().AutoExecuteCode or 'loadstring(game:HttpGet("https://raw.githubusercontent.com/phucvlog07-crypto/-d/refs/heads/main/gfehgergvfewfwefew"))()'
+                    -- Bắt buộc server tiếp theo cũng phải nhớ cái link này để nhảy tiếp
+                    local injectCode = 'getgenv().AutoExecuteCode = [[' .. myCode .. ']]; ' .. myCode
+                    pcall(function() q(injectCode) end)
                 end
                 
                 local ok2 = pcall(function()
